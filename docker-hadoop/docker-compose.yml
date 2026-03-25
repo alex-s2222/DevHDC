@@ -2,12 +2,13 @@ version: "3"
 
 services:
   namenode:
-    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    build: ./namenode
     container_name: namenode
     restart: always
     ports:
       - 9870:9870 # WEB UI
       - 9000:9000 # HDFS
+      - 8088:8088   # YARN
     volumes:
       - hadoop_namenode:/hadoop/dfs/name
     environment:
@@ -18,7 +19,7 @@ services:
       - bigdata
 
   datanode:
-    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    build: ./datanode
     container_name: datanode
     restart: always
     volumes:
@@ -31,7 +32,7 @@ services:
       - bigdata
   
   resourcemanager:
-    image: bde2020/hadoop-resourcemanager:2.0.0-hadoop3.2.1-java8
+    build: ./resourcemanager
     container_name: resourcemanager
     restart: always
     environment:
@@ -42,7 +43,7 @@ services:
       - bigdata
 
   nodemanager:
-    image: bde2020/hadoop-nodemanager:2.0.0-hadoop3.2.1-java8
+    build: ./nodemanager
     container_name: nodemanager
     restart: always
     environment:
