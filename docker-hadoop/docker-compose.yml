@@ -1,6 +1,35 @@
 version: "3"
 
 services:
+
+  spark-master:
+    image: apache/spark:3.5.2
+    container_name: spark-master
+    hostname: spark-master
+    environment:
+      - SPARK_NO_DAEMONIZE=true
+      - SPARK_MASTER_HOST=spark-master
+    ports:
+      - "9090:8080" # Web UI (сместили на 9090, чтобы не конфликтовал с Airflow)
+      - "7077:7077" # Мастер-порт
+    networks:
+      - bigdata
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master
+
+  spark-worker:
+    image: apache/spark:3.5.2
+    container_name: spark-worker
+    environment:
+      - SPARK_NO_DAEMONIZE=true
+      - SPARK_WORKER_CORES=1
+      - SPARK_WORKER_MEMORY=1G
+    depends_on:
+      - spark-master
+    networks:
+      - bigdata
+    command: /opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker spark://spark-master:7077
+
+    
   namenode:
     build: ./namenode
     container_name: namenode
@@ -8,13 +37,13 @@ services:
     ports:
       - 9870:9870 # WEB UI
       - 9000:9000 # HDFS
-      - 8088:8088   # YARN
-    volumes:
-      - hadoop_namenode:/hadoop/dfs/name
+      - 8020:8020 # Бинарный порт HDFS RPC (Spark)
     environment:
       - CLUSTER_NAME=test
     env_file:
       - ./hadoop.env
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
     networks:
       - bigdata
 
@@ -22,36 +51,41 @@ services:
     build: ./datanode
     container_name: datanode
     restart: always
+    environment:
+      SERVICE_PRECONDITION: "namenode:9870 namenode:8020"
+    env_file:
+      - ./hadoop.env
+    ports:
+      - "9864:9864"
     volumes:
       - hadoop_datanode:/hadoop/dfs/data
-    environment:
-      SERVICE_PRECONDITION: "namenode:9870"
-    env_file:
-      - ./hadoop.env
-    networks:
-      - bigdata
-  
-  resourcemanager:
-    build: ./resourcemanager
-    container_name: resourcemanager
-    restart: always
-    environment:
-      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864"
-    env_file:
-      - ./hadoop.env
     networks:
       - bigdata
 
-  nodemanager:
-    build: ./nodemanager
-    container_name: nodemanager
-    restart: always
-    environment:
-      SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
-    networks:
-      - bigdata
-    env_file:
-      - ./hadoop.env
+
+  #YARN 
+
+  # resourcemanager:
+  #   build: ./resourcemanager
+  #   container_name: resourcemanager
+  #   restart: always
+  #   environment:
+  #     SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864"
+  #   env_file:
+  #     - ./hadoop.env
+  #   networks:
+  #     - bigdata
+
+  # nodemanager:
+  #   build: ./nodemanager
+  #   container_name: nodemanager
+  #   restart: always
+  #   environment:
+  #     SERVICE_PRECONDITION: "namenode:9000 namenode:9870 datanode:9864 resourcemanager:8088"
+  #   networks:
+  #     - bigdata
+  #   env_file:
+  #     - ./hadoop.env
   
 volumes:
   hadoop_namenode:
