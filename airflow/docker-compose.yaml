@@ -1,18 +1,16 @@
-
 x-airflow-common:
   &airflow-common
   image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.5}
   environment:
-    &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
-    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    # AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    # AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
-    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    # AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
 
     _AIRFLOW_DB_MIGRATE: "true"
@@ -21,10 +19,10 @@ x-airflow-common:
     _AIRFLOW_WWW_USER_PASSWORD: airflow
 
   volumes:
-    - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
-    - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
-    - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
-    - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./config:/opt/airflow/config
+    - ./plugins:/opt/airflow/plugins
   networks:
     - bigdata
   user: "${AIRFLOW_UID:-50000}:0"
@@ -42,13 +40,13 @@ services:
       - bigdata
     restart: always
 
-  redis:
-    image: redis:7.2-bookworm
-    expose:
-      - 6379
-    networks:
-      - bigdata
-    restart: always
+  # redis:
+  #   image: redis:7.2-bookworm
+  #   expose:
+  #     - 6379
+  #   networks:
+  #     - bigdata
+  #   restart: always
 
   airflow-webserver:
     <<: *airflow-common
@@ -62,12 +60,12 @@ services:
     command: scheduler
     restart: always
 
-  airflow-worker:
-    <<: *airflow-common
-    command: celery worker
-    environment:
-      <<: *airflow-common-env
-    restart: always
+  # airflow-worker:
+  #   <<: *airflow-common
+  #   command: celery worker
+  #   environment:
+  #     <<: *airflow-common-env
+  #   restart: always
 
 volumes:
   postgres-db-volume:
