@@ -1,17 +1,18 @@
 x-airflow-common:
   &airflow-common
-  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.5}
+  build: 
+    context: .
+    dockerfile: airflow/Dockerfile
   environment:
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
-    # AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
-    # AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
     AIRFLOW__CORE__FERNET_KEY: ''
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
-    # AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
-    _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${SECRET_KEY}
 
     _AIRFLOW_DB_MIGRATE: "true"
     _AIRFLOW_WWW_USER_CREATE: "true"
@@ -19,10 +20,8 @@ x-airflow-common:
     _AIRFLOW_WWW_USER_PASSWORD: airflow
 
   volumes:
-    - ./dags:/opt/airflow/dags
-    - ./logs:/opt/airflow/logs
-    - ./config:/opt/airflow/config
-    - ./plugins:/opt/airflow/plugins
+    - airflow:/opt/airflow/dags
+
   networks:
     - bigdata
   user: "${AIRFLOW_UID:-50000}:0"
@@ -40,19 +39,12 @@ services:
       - bigdata
     restart: always
 
-  # redis:
-  #   image: redis:7.2-bookworm
-  #   expose:
-  #     - 6379
-  #   networks:
-  #     - bigdata
-  #   restart: always
-
-  airflow-webserver:
-    <<: *airflow-common
-    command: webserver
-    ports:
-      - "8080:8080"
+  redis:
+    image: redis:7.2-bookworm
+    expose:
+      - 6379
+    networks:
+      - bigdata
     restart: always
 
   airflow-scheduler:
@@ -60,14 +52,20 @@ services:
     command: scheduler
     restart: always
 
-  # airflow-worker:
-  #   <<: *airflow-common
-  #   command: celery worker
-  #   environment:
-  #     <<: *airflow-common-env
-  #   restart: always
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    restart: always
+    
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+    restart: always
 
 volumes:
+  airflow:
   postgres-db-volume:
 
 networks:

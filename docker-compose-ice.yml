@@ -1,0 +1,76 @@
+version: "3.8"
+
+services:
+  minio:
+    image: minio/minio:RELEASE.2025-03-12T18-04-18Z
+    container_name: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: minio12345
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+    - bigdata
+
+  rest-catalog:
+    image: tabulario/iceberg-rest:0.5.0
+    container_name: rest-catalog
+    ports:
+      - "8181:8181"
+    environment:
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: minio12345
+      CATALOG_WAREHOUSE: s3a://warehouse/
+      CATALOG_IO__IMPL: org.apache.iceberg.hadoop.HadoopFileIO
+      CATALOG_S3_ENDPOINT: http://minio:9000
+      AWS_REGION: us-east-1
+      AWS_DEFAULT_REGION: us-east-1
+      CATALOG_S3_PATH_STYLE_ACCESS: "true"
+    depends_on:
+      - minio
+    networks:
+    - bigdata
+
+  spark:
+    build:
+      context: .
+      dockerfile: ./ice/Dockerfile
+    container_name: spark
+    depends_on:
+      - minio
+      - rest-catalog
+    environment:
+      AWS_ACCESS_KEY_ID: minio
+      AWS_SECRET_ACCESS_KEY: minio12345
+    command: tail -f /dev/null
+    volumes:
+      - ./ice/spark-apps:/opt/spark-apps
+      - ./ice/spark-conf:/opt/spark/conf
+    ports:
+      - "4040:4040"
+    networks:
+    - bigdata
+
+  trino:
+    image: trinodb/trino:452
+    container_name: trino
+    ports:
+      - "8080:8080"
+    depends_on:
+      - rest-catalog
+      - minio
+    volumes:
+      - ./ice/trino/catalog:/etc/trino/catalog
+    networks:
+    - bigdata
+
+volumes:
+  minio_data:
+
+networks:
+  bigdata:
+    external: true
